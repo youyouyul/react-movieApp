@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { Typography, Button, Form, message, Input } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import DropZone from 'react-dropzone';
+import { useSelector } from 'react-redux';
+import { withRouter } from 'react-router-dom';
+
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -19,12 +23,15 @@ const CategoryOptions = [
 ];
 
 
-function VideoUploadPage() {
-
+function VideoUploadPage(props) {
+    const user = useSelector(state => state.user);
     const [VideoTitle, setVideoTitle] = useState("");
     const [Description, setDescription] = useState("");
     const [Private, setPrivate] = useState(0);
     const [Category, setCategory] = useState("Film & Animation");
+    const [FilePath, setFilePath] = useState("");
+    const [Duration, setDuration] = useState("");
+    const [ThumnailPath, setThumnailPath] = useState("");
 
     const onTitleChange = (e) => {
         setVideoTitle(e.currentTarget.value)
@@ -42,18 +49,78 @@ function VideoUploadPage() {
         setCategory(e.currentTarget.value);
     }
 
+    const onDrop = (files) => {
+        let formData = new FormData;
+
+        const config = {
+            header: {'content-type': 'multipart/form-data'}
+        };
+
+        formData.append("file", files[0]);
+
+        axios.post('/api/video/uploadfiles', formData, config)
+            .then(response => {
+                if(response.data.success) {
+                    let variable = {
+                        url: response.data.url,
+                        filename: response.data.filename
+                    };
+
+                    setFilePath(response.data.url);
+
+                    axios.post('/api/video/thumnail', variable)
+                        .then(response => {
+                            if(response.data.success) {
+                                setDuration(response.data.fileDuration);
+                                setThumnailPath(response.data.url);
+
+                            }else {
+                                alert('섬네일 생성을 실패했습니다.')
+                            }
+                        })
+                } else {
+                    alert('비디오 업로드를 실패했습니다.');
+                }
+            })
+    }
+
+    const onSubmit = (e) => {
+        e.preventDefault();
+
+        const variable = {
+            writer: user.userData._id,
+            title: VideoTitle,
+            description:Description,
+            privacy: Private,
+            filePath: FilePath,
+            category: Category,
+            duration: Duration,
+            thumnail: ThumnailPath
+        };
+
+        axios.post('/api/video/uploadVideo', variable)
+            .then(response => {
+                if(response.data.success) {
+                    message.success('성공적으로 업로드를 했습니다.');
+                    props.history.push('/');
+                } else {
+                    alert("비디오 업로드에 실패했습니다.");
+                }
+            })
+    }
+
     return (
         <div style={{ maxWidth: '700px', margin: '2rem auto' }}>
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                 <Title level={2}>Upload Video</Title>
             </div>
-            <Form>
+            <Form onSubmit={onSubmit}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     {/* Drop Zone */}
                     <DropZone
-                        onDrop
-                        multiple
-                        maxSize>
+                        onDrop={ onDrop }
+                        multiple={false}
+                        maxSize={100000000}>
                         {({ getRootProps, getInputProps }) => (
                             <div style={{ width: '300px', height: '240px', border: '1px solid lightgray', display: 'flex',
                                         alignItems: 'center', justifyContent: 'center'}} {...getRootProps()}>
@@ -63,9 +130,11 @@ function VideoUploadPage() {
                         )}
                     </DropZone>    
                     {/* Thumnail Zone */}
-                    <div>
-                        <img src alt />
-                    </div>
+                    {ThumnailPath &&
+                        <div>
+                            <img src={`http://localhost:5000/${ThumnailPath}`} alt="thumnail" />
+                        </div>  
+                    }
                 </div>
 
                 <br />
@@ -102,7 +171,7 @@ function VideoUploadPage() {
 
                 <br />
                 <br />
-                <Button type="primary" size="large" onClick>
+                <Button type="primary" size="large" onClick={onSubmit}>
                     Submit
                 </Button>
             </Form>
@@ -110,4 +179,4 @@ function VideoUploadPage() {
     )
 }
 
-export default VideoUploadPage;
+export default withRouter(VideoUploadPage);

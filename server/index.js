@@ -27,6 +27,9 @@ mongoose.connect(config.mongoURI, {
   .catch(err => console.log(err));
 
 
+app.use('/api/video', require('./routes/video'));
+app.use('/uploads', express.static('uploads'));
+
 app.get('/', (req, res) => res.send('Hello World! 안녕하세요'));
 
 // 회원 가입
